@@ -29,6 +29,11 @@ export async function onRequest(context) {
   const sid = (url.searchParams.get("s") || "").replace(/[^A-Za-z0-9_-]/g, "");
   const wantImg = url.searchParams.get("img") === "1";
   dbg.sid = sid; dbg.source = "";
+  // n = nombre y a = foto de quien comparte (los pone la app al armar el enlace)
+  const nameQ = (url.searchParams.get("n") || "").slice(0, 60);
+  let avatarQ = url.searchParams.get("a") || "";
+  if (!/^https:\/\//i.test(avatarQ) || avatarQ.length > 600) avatarQ = "";
+  dbg.n = nameQ; dbg.a = avatarQ;
 
   async function leer(u) {
     const r = await fetch(u, { headers: { "User-Agent": "Mozilla/5.0 (compatible; JamLink/1.0)", "Accept": "text/html" } });
@@ -56,6 +61,11 @@ export async function onRequest(context) {
       dbg.error = String(e);
     }
   }
+
+  // Si la pagina de Eclipse no dio el nombre, se usa el que trae el enlace
+  if (title === GENERIC_TITLE && nameQ && nameQ.toLowerCase() !== "someone") title = nameQ + " te invita a su jam";
+  // La foto de quien comparte (del enlace); la imagen de IA de Eclipse nunca se usa
+  if (avatarQ) image = avatarQ;
 
   if (debug) return new Response(JSON.stringify({ title, desc, image, ...dbg }, null, 2), { headers: { "content-type": "application/json; charset=utf-8" } });
 
@@ -103,6 +113,9 @@ ${image ? `<meta property="og:image" content="${esc(image)}">\n<meta name="twitt
 })();
 </script>
 </body>
+</html>`;
+  return new Response(html, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=60" } });
+}
 </html>`;
   return new Response(html, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=60" } });
 }
