@@ -23,18 +23,6 @@ export async function onRequest(context) {
   const id = (url.searchParams.get("i") || url.searchParams.get("id") || "").replace(/[^A-Za-z0-9_-]/g, "");
   const debug = url.searchParams.get("debug") === "1";
 
-  if (url.searchParams.get("raw") === "1" && id) {
-    // PRUEBA temporal: muestra lo que responde Eclipse para este jam (con Accept json y sin el).
-    const out = {};
-    for (const [k, acc] of [["json", "application/json"], ["any", "*/*"]]) {
-      try {
-        const r = await fetch("https://api.eclipsemusic.app/api/jam/" + id, { headers: { "User-Agent": "Mozilla/5.0 (compatible; JamLink/1.0)", "Accept": acc } });
-        out[k] = { status: r.status, type: r.headers.get("content-type"), body: (await r.text()).slice(0, 3000) };
-      } catch (e) { out[k] = { error: String(e) }; }
-    }
-    return new Response(JSON.stringify(out, null, 2), { headers: { "content-type": "application/json; charset=utf-8" } });
-  }
-
   let title = GENERIC_TITLE, desc = GENERIC_DESC, image = "";
   let dbg = { id, status: null, ogTitle: "", ogDesc: "", ogImage: "", error: "" };
 
@@ -63,7 +51,31 @@ export async function onRequest(context) {
     return { status: r.status, ogTitle: meta(html, "og:title"), ogDesc: meta(html, "og:description"), ogImage: meta(html, "og:image") };
   }
 
-  if (id || sid) {
+  // v361: con el codigo del jam activo, Eclipse da en JSON el nombre, la foto y la cancion (Accept: application/json).
+  let done = false;
+  if (id && !sid) {
+    try {
+      const r = await fetch("https://api.eclipsemusic.app/api/jam/" + id, { headers: { "User-Agent": "Mozilla/5.0 (compatible; JamLink/1.0)", "Accept": "application/json" } });
+      dbg.jsonStatus = r.status;
+      if (r.ok) {
+        const j = await r.json();
+        const data = j && j.data;
+        if (data) {
+          const ps = Array.isArray(data.participants) ? data.participants : [];
+          const host = ps.find(p => p && p.id === data.creatorId) || ps[0];
+          if (host && host.name && String(host.name).toLowerCase() !== "someone") title = String(host.name).slice(0, 60) + " te invita a su jam";
+          const av = host && host.avatarUrl;
+          if (!avatarQ && typeof av === "string" && /^https:\/\/api\.eclipsemusic\.app\//i.test(av) && av.length < 600) avatarQ = av;
+          const t = data.currentTrack;
+          if (t && t.title) desc = "Sonando: " + t.title + (t.artist ? " - " + t.artist : "");
+          done = !!(host && host.name);
+          dbg.source = "json";
+        }
+      }
+    } catch (e) { dbg.error = String(e); }
+  }
+
+  if (!done && (id || sid)) {
     try {
       // 1) la pagina del enlace corto /s/ (trae el nombre y la cancion); 2) si no hay, la del jam
       const fuente = sid ? "https://eclipsemusic.app/s/" + sid : "https://api.eclipsemusic.app/api/jam/" + id;
