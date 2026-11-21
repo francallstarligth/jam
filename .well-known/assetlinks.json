@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.eclipse.android",
+      "sha256_cert_fingerprints": [
+        "8B:53:A8:1A:4C:37:45:84:D7:C8:02:11:3A:4B:52:C8:38:25:79:33:41:29:67:7B:6D:BE:50:04:77:C5:88:B0"
+      ]
+    }
+  }
+]
