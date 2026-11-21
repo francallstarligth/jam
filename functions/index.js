@@ -23,6 +23,18 @@ export async function onRequest(context) {
   const id = (url.searchParams.get("i") || url.searchParams.get("id") || "").replace(/[^A-Za-z0-9_-]/g, "");
   const debug = url.searchParams.get("debug") === "1";
 
+  if (url.searchParams.get("raw") === "1" && id) {
+    // PRUEBA temporal: muestra lo que responde Eclipse para este jam (con Accept json y sin el).
+    const out = {};
+    for (const [k, acc] of [["json", "application/json"], ["any", "*/*"]]) {
+      try {
+        const r = await fetch("https://api.eclipsemusic.app/api/jam/" + id, { headers: { "User-Agent": "Mozilla/5.0 (compatible; JamLink/1.0)", "Accept": acc } });
+        out[k] = { status: r.status, type: r.headers.get("content-type"), body: (await r.text()).slice(0, 3000) };
+      } catch (e) { out[k] = { error: String(e) }; }
+    }
+    return new Response(JSON.stringify(out, null, 2), { headers: { "content-type": "application/json; charset=utf-8" } });
+  }
+
   let title = GENERIC_TITLE, desc = GENERIC_DESC, image = "";
   let dbg = { id, status: null, ogTitle: "", ogDesc: "", ogImage: "", error: "" };
 
