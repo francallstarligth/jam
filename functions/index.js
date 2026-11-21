@@ -20,7 +20,7 @@ function meta(html, prop) {
 
 export async function onRequest(context) {
   const url = new URL(context.request.url);
-  const id = (url.searchParams.get("id") || "").replace(/[^A-Za-z0-9_-]/g, "");
+  const id = (url.searchParams.get("i") || url.searchParams.get("id") || "").replace(/[^A-Za-z0-9_-]/g, "");
   const debug = url.searchParams.get("debug") === "1";
 
   let title = GENERIC_TITLE, desc = GENERIC_DESC, image = "";
@@ -32,7 +32,17 @@ export async function onRequest(context) {
   // n = nombre y a = foto de quien comparte (los pone la app al armar el enlace)
   const nameQ = (url.searchParams.get("n") || "").slice(0, 60);
   let avatarQ = url.searchParams.get("a") || "";
-  if (!/^https:\/\//i.test(avatarQ) || avatarQ.length > 600) avatarQ = "";
+  if (/^[A-Za-z0-9_-]{22}$/.test(avatarQ)) {
+    // foto comprimida: 22 letras -> UUID de la foto en api.eclipsemusic.app
+    try {
+      const bin = atob(avatarQ.replace(/-/g, "+").replace(/_/g, "/"));
+      let hex = "";
+      for (let i = 0; i < bin.length; i++) hex += bin.charCodeAt(i).toString(16).padStart(2, "0");
+      avatarQ = hex.length === 32
+        ? "https://api.eclipsemusic.app/api/user/avatar/" + hex.slice(0, 8) + "-" + hex.slice(8, 12) + "-" + hex.slice(12, 16) + "-" + hex.slice(16, 20) + "-" + hex.slice(20)
+        : "";
+    } catch (e) { avatarQ = ""; }
+  } else if (!/^https:\/\//i.test(avatarQ) || avatarQ.length > 600) avatarQ = "";
   dbg.n = nameQ; dbg.a = avatarQ;
 
   async function leer(u) {
