@@ -116,6 +116,3 @@ ${image ? `<meta property="og:image" content="${esc(image)}">\n<meta name="twitt
 </html>`;
   return new Response(html, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=60" } });
 }
-</html>`;
-  return new Response(html, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=60" } });
-}
