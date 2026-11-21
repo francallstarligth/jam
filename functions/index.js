@@ -26,26 +26,32 @@ export async function onRequest(context) {
   let title = GENERIC_TITLE, desc = GENERIC_DESC, image = "";
   let dbg = { id, status: null, ogTitle: "", ogDesc: "", ogImage: "", error: "" };
 
-  if (id) {
-    try {
-      const r = await fetch("https://api.eclipsemusic.app/api/jam/" + id, {
-        headers: { "User-Agent": "Mozilla/5.0 (compatible; JamLink/1.0)", "Accept": "text/html" },
-      });
-      dbg.status = r.status;
-      const html = await r.text();
-      const ogTitle = meta(html, "og:title");
-      const ogDesc = meta(html, "og:description");
-      const ogImage = meta(html, "og:image");
-      dbg.ogTitle = ogTitle; dbg.ogDesc = ogDesc; dbg.ogImage = ogImage;
+  const sid = (url.searchParams.get("s") || "").replace(/[^A-Za-z0-9_-]/g, "");
+  const wantImg = url.searchParams.get("img") === "1";
+  dbg.sid = sid; dbg.source = "";
 
-      const m = /^(.+?) invited you to jam$/i.exec(ogTitle);
+  async function leer(u) {
+    const r = await fetch(u, { headers: { "User-Agent": "Mozilla/5.0 (compatible; JamLink/1.0)", "Accept": "text/html" } });
+    const html = await r.text();
+    return { status: r.status, ogTitle: meta(html, "og:title"), ogDesc: meta(html, "og:description"), ogImage: meta(html, "og:image") };
+  }
+
+  if (id || sid) {
+    try {
+      // 1) la pagina del enlace corto /s/ (trae el nombre y la cancion); 2) si no hay, la del jam
+      const fuente = sid ? "https://eclipsemusic.app/s/" + sid : "https://api.eclipsemusic.app/api/jam/" + id;
+      const d = await leer(fuente);
+      dbg.source = fuente; dbg.status = d.status;
+      dbg.ogTitle = d.ogTitle; dbg.ogDesc = d.ogDesc; dbg.ogImage = d.ogImage;
+
+      const m = /^(.+?) invited you to jam$/i.exec(d.ogTitle);
       if (m && m[1].toLowerCase() !== "someone") title = m[1] + " te invita a su jam";
 
-      if (ogDesc && !/^Listen together on Eclipse Music$/i.test(ogDesc)) {
-        desc = ogDesc.replace(/^Now playing:\s*/i, "Sonando: ").replace(/\s*\|\s*Join on Eclipse( Music)?$/i, "");
+      if (d.ogDesc && !/^Listen together on Eclipse Music$/i.test(d.ogDesc)) {
+        desc = d.ogDesc.replace(/^Now playing:\s*/i, "Sonando: ").replace(/\s*[|\u2022]\s*Join on Eclipse( Music)?$/i, "");
       }
-      // La imagen por defecto de Eclipse (la de IA) NUNCA se usa
-      if (ogImage && !/jam_invite/i.test(ogImage)) image = ogImage;
+      // La imagen por defecto de Eclipse (la de IA) NUNCA se usa; la tarjeta propia solo si el enlace trae &img=1
+      if (d.ogImage && !/jam_invite/i.test(d.ogImage) && wantImg) image = d.ogImage;
     } catch (e) {
       dbg.error = String(e);
     }
